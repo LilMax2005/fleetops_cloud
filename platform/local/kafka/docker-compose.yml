@@ -1,0 +1,120 @@
+# Arquitectura Kafka: 1 Zookeeper + 3 brokers (factor de replicación 3, min.insync.replicas 2)
+#   cp .env.example .env && docker compose up -d
+# KAFKA_HOST = IP privada de la VM en Azure (la que usan los Container Apps vía VNet) o localhost en desarrollo.
+name: fleetops-kafka
+
+x-broker-env: &broker-env
+  KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+  KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+  KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+  KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+  KAFKA_MIN_INSYNC_REPLICAS: 2
+  KAFKA_NUM_PARTITIONS: 3
+  KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+  KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+  KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+  KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"     # los tópicos se crean de forma controlada (init / admin-kafka)
+  KAFKA_LOG_RETENTION_HOURS: 168
+  KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 3000
+  KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE: "false"
+  KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+
+x-broker: &broker
+  image: confluentinc/cp-kafka:7.7.1
+  restart: unless-stopped
+  networks: [kafka-net]
+  depends_on:
+    zookeeper:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:$${KAFKA_INTERNAL_PORT} >/dev/null 2>&1"]
+    interval: 15s
+    timeout: 10s
+    retries: 10
+    start_period: 30s
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.7.1
+    container_name: zookeeper
+    hostname: zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      KAFKA_HEAP_OPTS: "-Xms128m -Xmx256m"
+    networks: [kafka-net]
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+    healthcheck:
+      test: ["CMD-SHELL", "cub zk-ready localhost:2181 5"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kafka-1:
+    <<: *broker
+    container_name: kafka-1
+    hostname: kafka-1
+    ports: ["9092:9092"]
+    environment:
+      <<: *broker-env
+      KAFKA_BROKER_ID: 1
+      KAFKA_INTERNAL_PORT: 29092
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-1:29092,EXTERNAL://${KAFKA_HOST:-localhost}:9092
+    volumes: [kafka1-data:/var/lib/kafka/data, ./scripts:/scripts:ro]
+
+  kafka-2:
+    <<: *broker
+    container_name: kafka-2
+    hostname: kafka-2
+    ports: ["9093:9093"]
+    environment:
+      <<: *broker-env
+      KAFKA_BROKER_ID: 2
+      KAFKA_INTERNAL_PORT: 29093
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29093,EXTERNAL://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-2:29093,EXTERNAL://${KAFKA_HOST:-localhost}:9093
+    volumes: [kafka2-data:/var/lib/kafka/data, ./scripts:/scripts:ro]
+
+  kafka-3:
+    <<: *broker
+    container_name: kafka-3
+    hostname: kafka-3
+    ports: ["9094:9094"]
+    environment:
+      <<: *broker-env
+      KAFKA_BROKER_ID: 3
+      KAFKA_INTERNAL_PORT: 29094
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29094,EXTERNAL://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-3:29094,EXTERNAL://${KAFKA_HOST:-localhost}:9094
+    volumes: [kafka3-data:/var/lib/kafka/data, ./scripts:/scripts:ro]
+
+  # Crea los tópicos con sus parámetros (idempotente) y termina
+  kafka-init:
+    image: confluentinc/cp-kafka:7.7.1
+    container_name: kafka-init
+    networks: [kafka-net]
+    depends_on:
+      kafka-1: {condition: service_healthy}
+      kafka-2: {condition: service_healthy}
+      kafka-3: {condition: service_healthy}
+    environment:
+      BOOTSTRAP: kafka-1:29092,kafka-2:29093,kafka-3:29094
+    volumes:
+      - ./scripts:/scripts:ro
+    entrypoint: ["bash", "/scripts/create-topics.sh"]
+    restart: "no"
+
+volumes:
+  zookeeper-data:
+  zookeeper-log:
+  kafka1-data:
+  kafka2-data:
+  kafka3-data:
+
+networks:
+  kafka-net:
+    name: fleetops-kafka-net

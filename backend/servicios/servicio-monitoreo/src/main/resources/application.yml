@@ -1,0 +1,100 @@
+server:
+  port: ${PORT:8084}
+
+spring:
+  application:
+    name: servicio-monitoreo
+
+  # --- Base de datos cloud: Azure Database for PostgreSQL (Flexible Server) ---
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:fleetops}?sslmode=${POSTGRES_SSLMODE:prefer}
+    username: ${POSTGRES_USER:fleetops}
+    password: ${POSTGRES_PASSWORD:change_me}
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 20000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update   # esquema analítico simple, gestionado por Hibernate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+      hibernate.default_schema: monitoreo   # esquema propio dentro de la BD fleetops compartida
+      hibernate.hbm2ddl.create_namespaces: true
+
+  # --- Cliente Kafka (3 brokers levantados con docker-compose) ---
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092,localhost:9093,localhost:9094}
+    client-id: servicio-monitoreo
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all                      # espera a todas las réplicas in-sync
+      retries: 10
+      batch-size: 32768
+      compression-type: lz4
+      properties:
+        enable.idempotence: true     # sin duplicados ante reintentos
+        max.in.flight.requests.per.connection: 5
+        linger.ms: 10
+        delivery.timeout.ms: 120000
+        request.timeout.ms: 30000
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      auto-offset-reset: earliest
+      enable-auto-commit: false      # el contenedor confirma el offset tras procesar
+      max-poll-records: 200
+      isolation-level: read_committed
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.trusted.packages: com.fleetops.common.events
+        spring.json.use.type.headers: false   # servicio-flota no envia __TypeId__ (esquema por contrato JSON)
+        partition.assignment.strategy: org.apache.kafka.clients.consumer.CooperativeStickyAssignor
+        session.timeout.ms: 45000
+        heartbeat.interval.ms: 15000
+        max.poll.interval.ms: 300000
+    listener:
+      ack-mode: record
+      missing-topics-fatal: false
+    admin:
+      auto-create: true
+      fail-fast: false
+      properties:
+        request.timeout.ms: 15000
+
+fleetops:
+  security:
+    tenant-id: ${ENTRA_TENANT_ID:00000000-0000-0000-0000-000000000000}
+    audiences:
+      - ${ENTRA_API_CLIENT_ID:00000000-0000-0000-0000-000000000000}
+      - ${ENTRA_API_APP_ID_URI:api://fleetops-api}
+    required-scope: api.access
+    admin-role: FleetOps.Admin
+    cors-allowed-origins:
+      - http://localhost:4200
+      - ${FRONTEND_ORIGIN:https://stfleetopsweb.z1.web.core.windows.net}
+  monitoring:
+    speed-limit-kmh: ${FLEETOPS_TELEMETRY_MAX_SPEED_KPH:90}
+    low-fuel-percent: ${FLEETOPS_TELEMETRY_MIN_FUEL_PERCENT:15}
+  kafka:
+    retry:
+      max-attempts: 3
+    groups:
+      telemetry: monitoreo-telemetria   # balancea las 6 particiones entre hilos/réplicas
+      trips: monitoreo-viajes
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    com.fleetops: INFO
+    org.apache.kafka: WARN

@@ -1,0 +1,87 @@
+# EP5: integra Kafka con la plataforma local existente (PostgreSQL + RabbitMQ en cluster).
+# Orden de arranque (desde platform/local):
+#   1) docker compose -f kafka/docker-compose.yml --env-file kafka/.env up -d        (Zookeeper + 3 brokers + topicos)
+#   2) docker compose -f kafka-ui/docker-compose.yml --env-file kafka-ui/.env up -d  (Kafka UI en :8090)
+#   3) docker compose --env-file ../../.env -f docker-compose.yml -f docker-compose.ep5.yml up -d --build
+# Este archivo solo agrega: Kafka a servicio-flota y los servicios servicio-monitoreo, admin-kafka y admin-rabbitmq.
+
+x-kafka-bootstrap: &kafka-bootstrap kafka-1:29092,kafka-2:29093,kafka-3:29094
+
+x-ep5-service: &ep5-service
+  build:
+    context: ../../backend/servicios
+    dockerfile: Dockerfile.ep5
+  restart: unless-stopped
+  networks: [fleetops-local, fleetops-kafka]
+
+x-entra: &entra
+  ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-00000000-0000-0000-0000-000000000000}
+  ENTRA_API_CLIENT_ID: ${ENTRA_API_CLIENT_ID:-00000000-0000-0000-0000-000000000000}
+  ENTRA_API_APP_ID_URI: ${ENTRA_API_APP_ID_URI:-api://fleetops-api}
+
+services:
+  servicio-flota:
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: *kafka-bootstrap
+      FLEETOPS_KAFKA_ENABLED: "true"
+      FLEETOPS_KAFKA_CREATE_TOPICS: "true"
+    networks: [fleetops-local, fleetops-kafka]
+
+  servicio-monitoreo:
+    <<: *ep5-service
+    image: fleetops/servicio-monitoreo:local
+    container_name: fleetops-servicio-monitoreo
+    build:
+      context: ../../backend/servicios
+      dockerfile: Dockerfile.ep5
+      args: {MODULE: servicio-monitoreo}
+    depends_on:
+      postgres: {condition: service_healthy}
+    environment:
+      <<: *entra
+      PORT: 8084
+      KAFKA_BOOTSTRAP_SERVERS: *kafka-bootstrap
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-fleetops}
+      POSTGRES_USER: ${POSTGRES_USER:?Define POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD}
+      POSTGRES_SSLMODE: disable
+    ports: ["127.0.0.1:8084:8084"]
+
+  admin-rabbitmq:
+    <<: *ep5-service
+    image: fleetops/admin-rabbitmq:local
+    container_name: fleetops-admin-rabbitmq
+    build:
+      context: ../../backend/servicios
+      dockerfile: Dockerfile.ep5
+      args: {MODULE: admin-rabbitmq}
+    depends_on:
+      rabbitmq-1: {condition: service_healthy}
+    environment:
+      <<: *entra
+      PORT: 8082
+      SPRING_RABBITMQ_ADDRESSES: rabbitmq-1:5672,rabbitmq-2:5672
+      SPRING_RABBITMQ_USERNAME: ${SPRING_RABBITMQ_USERNAME:?Define SPRING_RABBITMQ_USERNAME}
+      SPRING_RABBITMQ_PASSWORD: ${SPRING_RABBITMQ_PASSWORD:?Define SPRING_RABBITMQ_PASSWORD}
+      RABBITMQ_MANAGEMENT_URL: http://rabbitmq-1:15672
+    ports: ["127.0.0.1:8082:8082"]
+
+  admin-kafka:
+    <<: *ep5-service
+    image: fleetops/admin-kafka:local
+    container_name: fleetops-admin-kafka
+    build:
+      context: ../../backend/servicios
+      dockerfile: Dockerfile.ep5
+      args: {MODULE: admin-kafka}
+    environment:
+      <<: *entra
+      PORT: 8083
+      KAFKA_BOOTSTRAP_SERVERS: *kafka-bootstrap
+    ports: ["127.0.0.1:8083:8083"]
+
+networks:
+  fleetops-kafka:
+    external: true
+    name: fleetops-kafka-net

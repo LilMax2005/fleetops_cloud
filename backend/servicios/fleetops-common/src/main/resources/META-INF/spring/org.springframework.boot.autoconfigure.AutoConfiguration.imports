@@ -1,0 +1,2 @@
+com.fleetops.common.security.FleetOpsSecurityAutoConfiguration
+com.fleetops.common.kafka.FleetOpsKafkaErrorHandlingAutoConfiguration

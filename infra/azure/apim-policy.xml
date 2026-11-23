@@ -1,0 +1,47 @@
+<!--
+  Política de entrada para las APIs FleetOps en Azure API Management (apim-municipalidad-mj).
+  Named values requeridos: entra-tenant-id, entra-api-client-id, entra-spa-client-id.
+  Se aplica a: /fleetops, /fleetops-monitoreo, /fleetops-admin-kafka, /fleetops-admin-rabbitmq
+  (el backend vuelve a validar el JWT con su propio filtro: defensa en profundidad).
+-->
+<policies>
+  <inbound>
+    <base />
+    <cors allow-credentials="false">
+      <allowed-origins>
+        <origin>https://stfleetopsweb.z1.web.core.windows.net</origin>
+        <origin>http://localhost:4200</origin>
+      </allowed-origins>
+      <allowed-methods preflight-result-max-age="3600">
+        <method>GET</method><method>POST</method><method>PUT</method><method>PATCH</method><method>DELETE</method><method>OPTIONS</method>
+      </allowed-methods>
+      <allowed-headers><header>Authorization</header><header>Content-Type</header></allowed-headers>
+    </cors>
+    <validate-azure-ad-token tenant-id="{{entra-tenant-id}}" header-name="Authorization"
+                             failed-validation-httpcode="401" failed-validation-error-message="Token inválido o expirado">
+      <client-application-ids>
+        <application-id>{{entra-spa-client-id}}</application-id>
+      </client-application-ids>
+      <audiences>
+        <audience>{{entra-api-client-id}}</audience>
+        <audience>api://{{entra-api-client-id}}</audience>
+      </audiences>
+      <required-claims>
+        <claim name="scp" match="any" separator=" ">
+          <value>api.access</value>
+        </claim>
+      </required-claims>
+    </validate-azure-ad-token>
+    <rate-limit-by-key calls="120" renewal-period="60" counter-key="@(context.Request.IpAddress)" />
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+    <set-header name="X-Powered-By" exists-action="delete" />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

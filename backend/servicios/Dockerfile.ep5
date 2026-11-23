@@ -1,0 +1,25 @@
+# Imagen multi-etapa para los modulos EP5 (Spring Boot 3.5). Contexto: backend/servicios. Ejemplo:
+#   docker build -f Dockerfile.ep5 --build-arg MODULE=servicio-monitoreo -t acrfleetops.azurecr.io/servicio-monitoreo:1.0.0 .
+FROM maven:3.9-eclipse-temurin-21 AS build
+ARG MODULE
+WORKDIR /src
+COPY pom.xml .
+COPY fleetops-common/pom.xml fleetops-common/
+COPY servicio-monitoreo/pom.xml servicio-monitoreo/
+COPY admin-rabbitmq/pom.xml admin-rabbitmq/
+COPY admin-kafka/pom.xml admin-kafka/
+RUN mvn -q -B -pl ${MODULE} -am dependency:go-offline -DskipTests || true
+COPY fleetops-common fleetops-common
+COPY servicio-monitoreo servicio-monitoreo
+COPY admin-rabbitmq admin-rabbitmq
+COPY admin-kafka admin-kafka
+RUN mvn -q -B -pl ${MODULE} -am package -DskipTests && cp ${MODULE}/target/${MODULE}.jar /app.jar
+
+FROM eclipse-temurin:21-jre-alpine
+RUN addgroup -S app && adduser -S app -G app
+USER app
+WORKDIR /app
+COPY --from=build /app.jar app.jar
+EXPOSE 8080
+ENV PORT=8080 JAVA_OPTS="-XX:MaxRAMPercentage=75"
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]

@@ -1,0 +1,36 @@
+server:
+  port: ${PORT:8082}
+
+spring:
+  application:
+    name: admin-rabbitmq
+  rabbitmq:
+    addresses: ${SPRING_RABBITMQ_ADDRESSES:localhost:5672,localhost:5673}
+    username: ${SPRING_RABBITMQ_USERNAME:fleetops}
+    password: ${SPRING_RABBITMQ_PASSWORD:change_me}
+
+fleetops:
+  rabbit:
+    management:
+      url: ${RABBITMQ_MANAGEMENT_URL:http://localhost:15672}
+      username: ${SPRING_RABBITMQ_USERNAME:fleetops}
+      password: ${SPRING_RABBITMQ_PASSWORD:change_me}
+      vhost: /
+  security:
+    tenant-id: ${ENTRA_TENANT_ID:00000000-0000-0000-0000-000000000000}
+    audiences:
+      - ${ENTRA_API_CLIENT_ID:00000000-0000-0000-0000-000000000000}
+      - ${ENTRA_API_APP_ID_URI:api://fleetops-api}
+    admin-role: FleetOps.Admin
+    cors-allowed-origins:
+      - http://localhost:4200
+      - ${FRONTEND_ORIGIN:https://stfleetopsweb.z1.web.core.windows.net}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  health:
+    rabbit:
+      enabled: false

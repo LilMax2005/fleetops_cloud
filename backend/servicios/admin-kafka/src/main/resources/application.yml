@@ -1,0 +1,32 @@
+server:
+  port: ${PORT:8083}
+
+spring:
+  application:
+    name: admin-kafka
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092,localhost:9093,localhost:9094}
+    client-id: admin-kafka
+    admin:
+      fail-fast: false
+      properties:
+        request.timeout.ms: 15000
+        default.api.timeout.ms: 30000
+        retries: 3
+
+fleetops:
+  security:
+    tenant-id: ${ENTRA_TENANT_ID:00000000-0000-0000-0000-000000000000}
+    audiences:
+      - ${ENTRA_API_CLIENT_ID:00000000-0000-0000-0000-000000000000}
+      - ${ENTRA_API_APP_ID_URI:api://fleetops-api}
+    admin-role: FleetOps.Admin
+    cors-allowed-origins:
+      - http://localhost:4200
+      - ${FRONTEND_ORIGIN:https://stfleetopsweb.z1.web.core.windows.net}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
