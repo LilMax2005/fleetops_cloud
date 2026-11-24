@@ -12,7 +12,7 @@ simulador y RabbitMQ en clúster) sin reemplazar la mensajería RabbitMQ.
 | admin-kafka | `backend/servicios/admin-kafka` | 8083 | API de administración de tópicos, particiones, configs y consumer groups (AdminClient) |
 | admin-rabbitmq | `backend/servicios/admin-rabbitmq` | 8082 | API de administración de colas, exchanges y bindings (AmqpAdmin + Management API) |
 | fleetops-common | `backend/servicios/fleetops-common` | — | Contratos de eventos, validación, manejo de errores Kafka (DLT) y seguridad Entra ID |
-| Kafka + Zookeeper | `platform/local/kafka` | 9092-9094 | 1 Zookeeper + 3 brokers, RF 3, min ISR 2, creación controlada de tópicos |
+| Kafka + Zookeeper | `platform/local/kafka` | 9092-9094 | 3 Zookeeper + 3 brokers, RF 3, min ISR 2, creación controlada de tópicos |
 | Kafka UI | `platform/local/kafka-ui` | 8090 | Consola web con login |
 | Frontend Angular | `frontend-angular` | 4200 | MSAL (Entra ID), panel, incidentes, telemetría, analítica y consolas admin |
 | Azure | `infra/azure` | — | Política APIM (`validate-azure-ad-token`) y despliegue a Container Apps |

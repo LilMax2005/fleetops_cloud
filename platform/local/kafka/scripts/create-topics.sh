@@ -20,8 +20,8 @@ create() { # nombre particiones config...
 # Ciclo de vida de viajes: auditoría 7 días, orden por viaje (key = tripId)
 create fleetops.viajes.eventos 3 retention.ms=604800000 cleanup.policy=delete min.insync.replicas=2
 
-# Telemetría GPS: alto volumen, 6 particiones, retención corta 24 h, segmentos de 1 h
-create fleetops.telemetria.gps 6 retention.ms=86400000 cleanup.policy=delete segment.ms=3600000 min.insync.replicas=2 compression.type=lz4
+# Telemetría GPS: alto volumen, 3 particiones, retención corta 24 h, segmentos de 1 h
+create fleetops.telemetria.gps 3 retention.ms=86400000 cleanup.policy=delete segment.ms=3600000 min.insync.replicas=2 compression.type=lz4
 
 # Dead letter topics: 14 días para investigar mensajes fallidos
 create fleetops.viajes.eventos.DLT 1 retention.ms=1209600000 cleanup.policy=delete

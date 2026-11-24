@@ -1,6 +1,6 @@
 # EP5: integra Kafka con la plataforma local existente (PostgreSQL + RabbitMQ en cluster).
 # Orden de arranque (desde platform/local):
-#   1) docker compose -f kafka/docker-compose.yml --env-file kafka/.env up -d        (Zookeeper + 3 brokers + topicos)
+#   1) docker compose -f kafka/docker-compose.yml --env-file kafka/.env up -d        (3 Zookeeper + 3 brokers + topicos)
 #   2) docker compose -f kafka-ui/docker-compose.yml --env-file kafka-ui/.env up -d  (Kafka UI en :8090)
 #   3) docker compose --env-file ../../.env -f docker-compose.yml -f docker-compose.ep5.yml up -d --build
 # Este archivo solo agrega: Kafka a servicio-flota y los servicios servicio-monitoreo, admin-kafka y admin-rabbitmq.
