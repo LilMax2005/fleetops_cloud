@@ -31,7 +31,7 @@ cd backend/servicios/servicio-flota && ./mvnw test
 POST /api/v1/telemetry ─► RabbitMQ fleetops.telemetry.queue ─► servicio-flota (posición + alertas SPEEDING/LOW_FUEL ─► ms-alerta)
                                                                      │ after commit
                                                                      ▼
-                                                    Kafka fleetops.telemetria.gps (6 particiones, key = vehicleId)
+                                                    Kafka fleetops.telemetria.gps (3 particiones, key = vehicleId)
                                                                      │ group monitoreo-telemetria (3 hilos)
                                                                      ▼
                                                                servicio-monitoreo ─► /api/v1/analytics/*
@@ -46,7 +46,7 @@ grupo `monitoreo-dlt-auditoria`.
 | Tópico | Particiones | Retención | Notas |
 | --- | --- | --- | --- |
 | `fleetops.viajes.eventos` | 3 | 7 días | min.insync.replicas 2 |
-| `fleetops.telemetria.gps` | 6 | 24 h | segment.ms 1 h, lz4 |
+| `fleetops.telemetria.gps` | 3 | 24 h | segment.ms 1 h, lz4 |
 | `*.DLT` | 1 | 14 días | |
 
 Productor: `acks=all`, idempotencia, lz4, `max.block.ms=5000` (si Kafka cae, flota sigue operando con RabbitMQ).
