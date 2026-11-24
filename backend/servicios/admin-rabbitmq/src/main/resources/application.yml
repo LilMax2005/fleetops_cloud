@@ -17,10 +17,10 @@ fleetops:
       password: ${SPRING_RABBITMQ_PASSWORD:change_me}
       vhost: /
   security:
-    tenant-id: ${ENTRA_TENANT_ID:00000000-0000-0000-0000-000000000000}
+    tenant-id: ${ENTRA_TENANT_ID:72fd0b5a-8a6a-4cff-89f6-bde961f7e250}
     audiences:
-      - ${ENTRA_API_CLIENT_ID:00000000-0000-0000-0000-000000000000}
-      - ${ENTRA_API_APP_ID_URI:api://fleetops-api}
+      - ${ENTRA_API_CLIENT_ID:30c9b696-b377-4418-9a14-59449389b268}
+      - ${ENTRA_API_APP_ID_URI:api://30c9b696-b377-4418-9a14-59449389b268}
     admin-role: FleetOps.Admin
     cors-allowed-origins:
       - http://localhost:4200

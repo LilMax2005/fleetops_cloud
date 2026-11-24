@@ -42,6 +42,7 @@ export function msalGuardConfigFactory(): MsalGuardConfiguration {
  */
 export function msalInterceptorConfigFactory(): MsalInterceptorConfiguration {
   const protectedResourceMap = new Map<string, string[]>();
-  Object.values(environment.api).forEach((url) => protectedResourceMap.set(url, [environment.entra.apiScope]));
+  // msal-angular 6 usa strictMatching: sin el comodín /* no se adjunta el token a las rutas bajo cada URL base.
+  Object.values(environment.api).forEach((url) => protectedResourceMap.set(`${url}/*`, [environment.entra.apiScope]));
   return { interactionType: InteractionType.Redirect, protectedResourceMap };
 }
